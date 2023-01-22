@@ -1,4 +1,4 @@
-@Library('ni-utils') _
+@Library('ni-utils@support-openLineage') _
 
 //service name is extrapolated from repository name check
 def svcName = currentBuild.rawBuild.project.parent.displayName
@@ -19,12 +19,15 @@ def sharedLibrary = new com.naturalint.kafkaConnectGradle()
 def slackChannel = "kafka-connect-cicd"
 
 // Args for pipeline
+def initiateData = [projectPath: "client/java", projectArtifact: "jar", projectBucketName: "OpenLineage" newAirflowEdition: true]
+
 def compileData = [run: true] //, maven_build_cmd: mavenBuildCommand]
 def testData = [run: false] // Default is: python -m unittest
 def artifactData = [run: true]
 def intTestData = [run: false]
 def deploymentData = [run: false]
 def buildCommands = [
+    initiateData: initiateData,
     compileData: compileData,
     testData: testData,
     artifactData: artifactData,
