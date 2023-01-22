@@ -19,7 +19,7 @@ def sharedLibrary = new com.naturalint.kafkaConnectGradle()
 def slackChannel = "kafka-connect-cicd"
 
 // Args for pipeline
-def initiateData = [projectPath: "client/java", projectArtifact: "jar", projectBucketName: "OpenLineage" newAirflowEdition: true]
+def initiateData = [projectPath: "client/java", projectArtifact: "jar", projectBucketName: "OpenLineage"]
 
 def compileData = [run: true] //, maven_build_cmd: mavenBuildCommand]
 def testData = [run: false] // Default is: python -m unittest
