@@ -17,11 +17,12 @@ def sharedLibrary = new com.naturalint.kafkaConnectGradle()
 
 // Set slack channel
 def slackChannel = "kafka-connect-cicd"
-def mavenBuildCommand = "./gradlew build :spotlessApply"
+#def mavenBuildCommand = "./gradlew build :spotlessApply"
+def mavenBuildCommand = "./gradlew publishToMavenLocal"
 
 // Args for pipeline
 def initiateData = [projectPath: "client/java", projectArtifact: "jar", projectBucketName: "openlineage", grepVersion: "version"]
-def compileData = [run: true, maven_build_cmd: mavenBuildCommand]
+def compileData = [run: true, maven_build_cmd: mavenBuildCommand, projectToCompile: ["client/java","integration/spark" ]]
 def testData = [run: false] // Default is: python -m unittest
 def artifactData = [run: true]
 def intTestData = [run: false]
