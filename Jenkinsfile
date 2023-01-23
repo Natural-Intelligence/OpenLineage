@@ -21,7 +21,7 @@ def slackChannel = "kafka-connect-cicd"
 def mavenBuildCommand = "./gradlew publishToMavenLocal"
 
 // Args for pipeline
-def initiateData = [projectPath: "client/java", projectArtifact: "jar", projectBucketName: "openlineage", grepVersion: "version"]
+def initiateData = [projectPathVersion: "client/java", projectArtifact: "jar", projectBucketName: "openlineage", grepVersion: "version"]
 def compileData = [run: true, maven_build_cmd: mavenBuildCommand, projectToCompile: ["client/java","integration/spark" ]]
 def testData = [run: false] // Default is: python -m unittest
 def artifactData = [run: true]
