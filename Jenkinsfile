@@ -17,7 +17,7 @@ def sharedLibrary = new com.naturalint.kafkaConnectGradle()
 
 // Set slack channel
 def slackChannel = "kafka-connect-cicd"
-#def mavenBuildCommand = "./gradlew build :spotlessApply"
+//def mavenBuildCommand = "./gradlew build :spotlessApply"
 def mavenBuildCommand = "./gradlew publishToMavenLocal"
 
 // Args for pipeline
