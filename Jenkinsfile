@@ -3,8 +3,12 @@
 //service name is extrapolated from repository name check
 def svcName = currentBuild.rawBuild.project.parent.displayName
 
-// Define pod
+//get pod template definition
 def pod = libraryResource 'com/naturalint/kafka-agent-gradle.yaml'
+def template_vars = [
+   'java_version': '8'
+]
+pod = renderTemplate(pod, template_vars)
 print pod
 
 // Define sharedLibrary
