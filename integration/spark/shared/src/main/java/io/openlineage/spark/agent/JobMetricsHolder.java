@@ -58,16 +58,18 @@ public class JobMetricsHolder {
     Map<Metric, Number> result = new HashMap<>();
 
     for (TaskMetrics taskMetric : jobMetrics) {
-      OutputMetrics outputMetrics = taskMetric.outputMetrics();
-      if (Objects.nonNull(outputMetrics)) {
-        result.merge(
-            Metric.WRITE_BYTES,
-            outputMetrics.bytesWritten(),
-            (m, b) -> m.longValue() + b.longValue());
-        result.merge(
-            Metric.WRITE_RECORDS,
-            outputMetrics.recordsWritten(),
-            (m, b) -> m.longValue() + b.longValue());
+      if (taskMetric != null) {
+        OutputMetrics outputMetrics = taskMetric.outputMetrics();
+        if (Objects.nonNull(outputMetrics)) {
+          result.merge(
+                  Metric.WRITE_BYTES,
+                  outputMetrics.bytesWritten(),
+                  (m, b) -> m.longValue() + b.longValue());
+          result.merge(
+                  Metric.WRITE_RECORDS,
+                  outputMetrics.recordsWritten(),
+                  (m, b) -> m.longValue() + b.longValue());
+        }
       }
     }
     return result;

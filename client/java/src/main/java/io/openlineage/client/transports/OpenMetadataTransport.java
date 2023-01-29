@@ -143,12 +143,14 @@ public final class OpenMetadataTransport extends Transport implements Closeable 
 
     private void sendToOpenMetadata(String tableName, String pipelineName, LineageType lineageType) {
         try {
+            log.error("### Going to send {} lineage to OpenMetadata for pipeline: {}, table: {}", lineageType, pipelineName, tableName);
             Set<String> tableIds = getTableIds(tableName);
 
             tableIds.forEach(tableId -> {
                 String pipelineServiceId = createOrUpdatePipelineService();
                 String pipelineId = createOrUpdatePipeline(pipelineServiceId, pipelineName);
                 createOrUpdateLineage(pipelineId, tableId, lineageType);
+                log.error("### {} lineage was sent successfully to OpenMetadata for pipeline: {}, table: {}", lineageType, pipelineName, tableName);
                 log.info("{} lineage was sent successfully to OpenMetadata for pipeline: {}, table: {}", lineageType, pipelineName, tableName);
             });
         } catch (Exception e) {
@@ -300,6 +302,7 @@ public final class OpenMetadataTransport extends Transport implements Closeable 
     public HttpPut createPipelineRequest(String pipelineServiceId, String pipelineName) throws Exception {
         Map requestMap = new HashMap<>();
         requestMap.put("name", pipelineName);
+        requestMap.put("pipelineUrl", "/tree?dag_id=" + pipelineName);
         requestMap.put("service", new HashMap<String, String>() {{
             put("id", pipelineServiceId);
             put("type", "pipelineService");
