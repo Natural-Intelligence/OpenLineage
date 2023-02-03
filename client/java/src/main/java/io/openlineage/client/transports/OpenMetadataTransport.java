@@ -29,6 +29,7 @@ import java.net.MalformedURLException;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
@@ -47,6 +48,8 @@ public final class OpenMetadataTransport extends Transport implements Closeable 
     private final String airflowHost;
     private @Nullable
     final TokenProvider tokenProvider;
+
+    private final Map<LineageType, Set<String>> tableNamesCache = new ConcurrentHashMap<>();
 
     public enum LineageType {
         OUTLET,
@@ -96,16 +99,24 @@ public final class OpenMetadataTransport extends Transport implements Closeable 
         this.airflowHost = openMetadataConfig.getAirflowHost();
     }
 
-    private Set<String> getTableNames(List<? extends OpenLineage.Dataset> datasets) {
+    private Set<String> getTableNames(List<? extends OpenLineage.Dataset> datasets, LineageType lineageType) {
         if (datasets == null) {
             return Collections.emptySet();
         }
-        return datasets.stream().filter(d -> d.getFacets() != null && d.getFacets().getSymlinks() != null &&
+        Set<String> tableNames = datasets.stream().filter(d -> d.getFacets() != null && d.getFacets().getSymlinks() != null &&
                         d.getFacets().getSymlinks().getIdentifiers() != null)
                 .flatMap(d -> d.getFacets().getSymlinks().getIdentifiers().stream())
                 .map(i -> i.getName())
                 .filter(Objects::nonNull)
                 .collect(Collectors.toSet());
+
+        tableNamesCache.putIfAbsent(lineageType, new HashSet<>());
+        Set<String> filteredTableNames = tableNames.stream().filter(t -> !tableNamesCache.get(lineageType).contains(t)).collect(Collectors.toSet());
+        tableNamesCache.computeIfPresent(lineageType, (k, v) -> {
+            v.addAll(filteredTableNames);
+            return v;
+        });
+        return filteredTableNames;
     }
 
     @Override
@@ -115,18 +126,17 @@ public final class OpenMetadataTransport extends Transport implements Closeable 
                 return;
             }
 
-            Set<String> inputTableNames = getTableNames(runEvent.getInputs());
+            Set<String> inputTableNames = getTableNames(runEvent.getInputs(), LineageType.INLET);
             inputTableNames.forEach(tableName -> {
                 sendToOpenMetadata(tableName, pipelineName, LineageType.INLET);
             });
 
-            Set<String> outputTableNames = getTableNames(runEvent.getOutputs());
+            Set<String> outputTableNames = getTableNames(runEvent.getOutputs(), LineageType.OUTLET);
             outputTableNames.forEach(tableName -> {
                 sendToOpenMetadata(tableName, pipelineName, LineageType.OUTLET);
             });
         } catch (Exception e) {
             log.error("failed to emit event to OpenMetadata: {}", e.getMessage(), e);
-            throw e;
         }
     }
 
@@ -155,7 +165,6 @@ public final class OpenMetadataTransport extends Transport implements Closeable 
             });
         } catch (Exception e) {
             log.error("Failed to send {} lineage to OpenMetadata for table {} pipeline {} due to: {}", lineageType, tableName, pipelineName, e.getMessage(), e);
-            throw e;
         }
     }
 

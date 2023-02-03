@@ -7,6 +7,7 @@ package io.openlineage.spark3.agent.lifecycle.plan.column;
 
 import com.google.cloud.spark.bigquery.BigQueryRelation;
 import io.openlineage.spark.agent.lifecycle.Rdds;
+import io.openlineage.spark.agent.lifecycle.plan.BigQueryNodeInputVisitor;
 import io.openlineage.spark.agent.util.DatasetIdentifier;
 import io.openlineage.spark.agent.util.PlanUtils;
 import io.openlineage.spark.agent.util.ReflectionUtils;
@@ -82,8 +83,8 @@ class InputFieldsCollector {
         && (((LogicalRelation) node).relation() instanceof HadoopFsRelation)) {
       HadoopFsRelation relation = (HadoopFsRelation) ((LogicalRelation) node).relation();
       return extractDatasetIdentifier(relation);
-    } else if (node instanceof LogicalRelation
-        && ((LogicalRelation) node).relation() instanceof BigQueryRelation) {
+    } else if (BigQueryNodeInputVisitor.hasBigQueryClasses()
+        && node instanceof LogicalRelation && ((LogicalRelation) node).relation() instanceof BigQueryRelation) {
       BigQueryRelation relation = (BigQueryRelation) ((LogicalRelation) node).relation();
       return extractDatasetIdentifier(relation);
     } else if (node instanceof LogicalRDD) {
