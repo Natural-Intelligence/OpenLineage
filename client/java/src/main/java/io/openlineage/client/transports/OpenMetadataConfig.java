@@ -21,4 +21,6 @@ public final class OpenMetadataConfig implements TransportConfig {
     @Getter @Setter private String pipelineServiceName;
     @Getter @Setter private String pipelineName;
     @Getter @Setter private String airflowHost;
+    @Getter @Setter private @Nullable String pipelineUrl;
+    @Getter @Setter private @Nullable String pipelineDescription;
 }

@@ -9,7 +9,6 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.openlineage.client.OpenLineage;
 import io.openlineage.client.OpenLineageClientException;
-import io.openlineage.client.OpenLineageClientUtils;
 import lombok.Builder;
 import lombok.NonNull;
 import lombok.extern.slf4j.Slf4j;
@@ -48,6 +47,8 @@ public final class OpenMetadataTransport extends Transport implements Closeable 
     private final String airflowHost;
     private @Nullable
     final TokenProvider tokenProvider;
+    private @Nullable final String pipelineUrl;
+    private @Nullable final String pipelineDescription;
 
     private final Map<LineageType, Set<String>> tableNamesCache = new ConcurrentHashMap<>();
 
@@ -61,7 +62,8 @@ public final class OpenMetadataTransport extends Transport implements Closeable 
     }
 
     public OpenMetadataTransport(CloseableHttpClient http, URI uri, String pipelineServiceName,
-                                 String pipelineName, String airflowHost, TokenProvider tokenProvider) {
+                                 String pipelineName, String airflowHost, TokenProvider tokenProvider,
+                                 String pipelineUrl, String pipelineDescription) {
         super(Type.OPEN_METADATA);
         this.http = http;
         this.uri = uri;
@@ -69,6 +71,8 @@ public final class OpenMetadataTransport extends Transport implements Closeable 
         this.pipelineServiceName = pipelineServiceName;
         this.pipelineName = pipelineName;
         this.airflowHost = airflowHost;
+        this.pipelineUrl = pipelineUrl;
+        this.pipelineDescription = pipelineDescription;
     }
 
     private static CloseableHttpClient withTimeout(Double timeout) {
@@ -97,6 +101,8 @@ public final class OpenMetadataTransport extends Transport implements Closeable 
         this.pipelineName = openMetadataConfig.getPipelineName();
         this.pipelineServiceName = openMetadataConfig.getPipelineServiceName();
         this.airflowHost = openMetadataConfig.getAirflowHost();
+        this.pipelineUrl = openMetadataConfig.getPipelineUrl();
+        this.pipelineDescription = openMetadataConfig.getPipelineDescription();
     }
 
     private Set<String> getTableNames(List<? extends OpenLineage.Dataset> datasets, LineageType lineageType) {
@@ -128,12 +134,12 @@ public final class OpenMetadataTransport extends Transport implements Closeable 
 
             Set<String> inputTableNames = getTableNames(runEvent.getInputs(), LineageType.INLET);
             inputTableNames.forEach(tableName -> {
-                sendToOpenMetadata(tableName, pipelineName, LineageType.INLET);
+                sendToOpenMetadata(tableName, LineageType.INLET);
             });
 
             Set<String> outputTableNames = getTableNames(runEvent.getOutputs(), LineageType.OUTLET);
             outputTableNames.forEach(tableName -> {
-                sendToOpenMetadata(tableName, pipelineName, LineageType.OUTLET);
+                sendToOpenMetadata(tableName, LineageType.OUTLET);
             });
         } catch (Exception e) {
             log.error("failed to emit event to OpenMetadata: {}", e.getMessage(), e);
@@ -151,14 +157,15 @@ public final class OpenMetadataTransport extends Transport implements Closeable 
         }
     }
 
-    private void sendToOpenMetadata(String tableName, String pipelineName, LineageType lineageType) {
+    private void sendToOpenMetadata(String tableName, LineageType lineageType) {
         try {
-            log.error("### Going to send {} lineage to OpenMetadata for pipeline: {}, table: {}", lineageType, pipelineName, tableName);
+            log.error("### Going to send {} lineage to OpenMetadata for pipeline: {}, table: {}, pipelineUrl: {}, airflowUrl: {}, description: {}",
+                    lineageType, pipelineName, tableName, pipelineUrl, airflowHost, pipelineDescription);
             Set<String> tableIds = getTableIds(tableName);
 
             tableIds.forEach(tableId -> {
                 String pipelineServiceId = createOrUpdatePipelineService();
-                String pipelineId = createOrUpdatePipeline(pipelineServiceId, pipelineName);
+                String pipelineId = createOrUpdatePipeline(pipelineServiceId);
                 createOrUpdateLineage(pipelineId, tableId, lineageType);
                 log.error("### {} lineage was sent successfully to OpenMetadata for pipeline: {}, table: {}", lineageType, pipelineName, tableName);
                 log.info("{} lineage was sent successfully to OpenMetadata for pipeline: {}, table: {}", lineageType, pipelineName, tableName);
@@ -206,9 +213,9 @@ public final class OpenMetadataTransport extends Transport implements Closeable 
         }
     }
 
-    private String createOrUpdatePipeline(String pipelineServiceId, String pipelineName) {
+    private String createOrUpdatePipeline(String pipelineServiceId) {
         try {
-            HttpPut request = createPipelineRequest(pipelineServiceId, pipelineName);
+            HttpPut request = createPipelineRequest(pipelineServiceId);
             Map response = sendRequest(request);
             return response.get("id").toString();
         } catch (Exception e) {
@@ -308,15 +315,20 @@ public final class OpenMetadataTransport extends Transport implements Closeable 
         return createPutRequest("/api/v1/services/pipelineServices", jsonRequest);
     }
 
-    public HttpPut createPipelineRequest(String pipelineServiceId, String pipelineName) throws Exception {
+    public HttpPut createPipelineRequest(String pipelineServiceId) throws Exception {
         Map requestMap = new HashMap<>();
         requestMap.put("name", pipelineName);
-        requestMap.put("pipelineUrl", "/tree?dag_id=" + pipelineName);
+        requestMap.put("pipelineUrl", pipelineUrl);
+
+        if (pipelineDescription != null && !pipelineDescription.isEmpty()){
+            requestMap.put("description", pipelineDescription);
+        }
         requestMap.put("service", new HashMap<String, String>() {{
             put("id", pipelineServiceId);
             put("type", "pipelineService");
         }});
         String jsonRequest = toJsonString(requestMap);
+        log.error("### createPipelineRequest = {}", jsonRequest);
         return createPutRequest("/api/v1/pipelines", jsonRequest);
     }
 
