@@ -47,8 +47,10 @@ public final class OpenMetadataTransport extends Transport implements Closeable 
     private final String airflowHost;
     private @Nullable
     final TokenProvider tokenProvider;
-    private @Nullable final String pipelineUrl;
-    private @Nullable final String pipelineDescription;
+    private @Nullable
+    final String pipelineUrl;
+    private @Nullable
+    final String pipelineDescription;
 
     private final Map<LineageType, Set<String>> tableNamesCache = new ConcurrentHashMap<>();
 
@@ -159,15 +161,12 @@ public final class OpenMetadataTransport extends Transport implements Closeable 
 
     private void sendToOpenMetadata(String tableName, LineageType lineageType) {
         try {
-            log.error("### Going to send {} lineage to OpenMetadata for pipeline: {}, table: {}, pipelineUrl: {}, airflowUrl: {}, description: {}",
-                    lineageType, pipelineName, tableName, pipelineUrl, airflowHost, pipelineDescription);
             Set<String> tableIds = getTableIds(tableName);
 
             tableIds.forEach(tableId -> {
                 String pipelineServiceId = createOrUpdatePipelineService();
                 String pipelineId = createOrUpdatePipeline(pipelineServiceId);
                 createOrUpdateLineage(pipelineId, tableId, lineageType);
-                log.error("### {} lineage was sent successfully to OpenMetadata for pipeline: {}, table: {}", lineageType, pipelineName, tableName);
                 log.info("{} lineage was sent successfully to OpenMetadata for pipeline: {}, table: {}", lineageType, pipelineName, tableName);
             });
         } catch (Exception e) {
@@ -320,7 +319,7 @@ public final class OpenMetadataTransport extends Transport implements Closeable 
         requestMap.put("name", pipelineName);
         requestMap.put("pipelineUrl", pipelineUrl);
 
-        if (pipelineDescription != null && !pipelineDescription.isEmpty()){
+        if (pipelineDescription != null && !pipelineDescription.isEmpty()) {
             requestMap.put("description", pipelineDescription);
         }
         requestMap.put("service", new HashMap<String, String>() {{
@@ -328,7 +327,6 @@ public final class OpenMetadataTransport extends Transport implements Closeable 
             put("type", "pipelineService");
         }});
         String jsonRequest = toJsonString(requestMap);
-        log.error("### createPipelineRequest = {}", jsonRequest);
         return createPutRequest("/api/v1/pipelines", jsonRequest);
     }
 

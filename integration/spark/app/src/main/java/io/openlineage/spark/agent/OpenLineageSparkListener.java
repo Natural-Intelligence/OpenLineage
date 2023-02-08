@@ -300,7 +300,6 @@ public class OpenLineageSparkListener extends org.apache.spark.scheduler.SparkLi
 
     private static boolean checkIfDisabled() {
         String isDisabled = Environment.getEnvironmentVariable("OPENLINEAGE_DISABLED");
-        log.error("### isDisabled = {}", isDisabled);
         return Boolean.parseBoolean(isDisabled);
     }
 }
