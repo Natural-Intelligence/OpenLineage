@@ -323,7 +323,7 @@ class OpenLineageRunEventBuilder {
                 log.debug("Physical plan executed {}", qe.executedPlan().toJSON());
               }
             });
-    log.info(
+    log.debug(
         "Visiting query plan {} with input dataset builders {}",
         openLineageContext.getQueryExecution(),
         inputDatasetBuilders);
