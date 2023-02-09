@@ -391,7 +391,7 @@ class OpenLineageRunEventBuilder {
   }
 
   private List<OutputDataset> buildOutputDatasets(List<Object> nodes) {
-    log.info(
+    log.debug(
         "Visiting query plan {} with output dataset builders {}",
         openLineageContext.getQueryExecution(),
         outputDatasetBuilders);
