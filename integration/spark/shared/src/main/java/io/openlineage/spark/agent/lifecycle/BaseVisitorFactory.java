@@ -58,7 +58,6 @@ abstract class BaseVisitorFactory implements VisitorFactory {
       inputVisitors.add(new SqlExecutionRDDVisitor(context));
     }
     inputVisitors.add(new ExternalRDDVisitor(context));
-    inputVisitors.add(new JdbcRelationVisitor(context));
     return inputVisitors;
   }
 

@@ -42,8 +42,8 @@ public class Spark3DatasetBuilderFactory implements DatasetBuilderFactory {
   public Collection<PartialFunction<Object, List<OpenLineage.OutputDataset>>> getOutputBuilders(
       OpenLineageContext context) {
     DatasetFactory<OpenLineage.OutputDataset> datasetFactory = DatasetFactory.output(context);
+
     return ImmutableList.<PartialFunction<Object, List<OpenLineage.OutputDataset>>>builder()
-        .add(new LogicalRelationDatasetBuilder(context, datasetFactory, false))
         .add(new SaveIntoDataSourceCommandVisitor(context))
         .add(new AppendDataDatasetBuilder(context, datasetFactory))
         .add(new DataSourceV2RelationOutputDatasetBuilder(context, datasetFactory))

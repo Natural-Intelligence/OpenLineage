@@ -44,7 +44,7 @@ import scala.Option;
  * plan visitors.
  */
 @Slf4j
-public class SaveIntoDataSourceCommandVisitor
+public class SaveIntoDataSourceCommandVisitor<D extends OpenLineage.Dataset>
     extends AbstractQueryPlanDatasetBuilder<
         SparkListenerEvent, SaveIntoDataSourceCommand, OutputDataset> {
 

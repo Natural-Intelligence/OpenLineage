@@ -7,16 +7,21 @@ package io.openlineage.spark.agent.lifecycle.plan;
 
 import io.openlineage.client.OpenLineage;
 import io.openlineage.spark.agent.util.DatasetIdentifier;
+import io.openlineage.spark.agent.util.JdbcUtils;
 import io.openlineage.spark.agent.util.PathUtils;
 import io.openlineage.spark.agent.util.PlanUtils;
+import io.openlineage.spark.agent.util.ScalaConversionUtils;
+import io.openlineage.spark.agent.util.TableNameParser;
 import io.openlineage.spark.api.AbstractQueryPlanDatasetBuilder;
 import io.openlineage.spark.api.DatasetFactory;
 import io.openlineage.spark.api.OpenLineageContext;
 
+import java.net.URI;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 import lombok.extern.slf4j.Slf4j;
@@ -71,6 +76,7 @@ public class LogicalRelationDatasetBuilder<D extends OpenLineage.Dataset>
     public boolean isDefinedAtLogicalPlan(LogicalPlan x) {
         return x instanceof LogicalRelation
                 && (((LogicalRelation) x).relation() instanceof HadoopFsRelation
+                || ((LogicalRelation) x).relation() instanceof JDBCRelation
                 || ((LogicalRelation) x).catalogTable().isDefined());
     }
 
@@ -80,6 +86,8 @@ public class LogicalRelationDatasetBuilder<D extends OpenLineage.Dataset>
             return handleCatalogTable(logRel);
         } else if (logRel.relation() instanceof HadoopFsRelation) {
             return handleHadoopFsRelation(logRel);
+        } else if (logRel.relation() instanceof JDBCRelation) {
+            return handleJdbcRelation(logRel);
         }
         throw new IllegalArgumentException(
                 "Expected logical plan to be either HadoopFsRelation, JDBCRelation, "
@@ -171,5 +179,66 @@ public class LogicalRelationDatasetBuilder<D extends OpenLineage.Dataset>
     protected Optional<String> getDatasetVersion(LogicalRelation x) {
         // not implemented
         return Optional.empty();
+    }
+
+    private List<D> handleJdbcRelation(LogicalRelation x) {
+        JDBCRelation relation = (JDBCRelation) x.relation();
+        // TODO- if a relation is composed of a complex sql query, we should attempt to
+        // extract the
+        // table names so that we can construct a true lineage
+        String tableName =
+                relation
+                        .jdbcOptions()
+                        .parameters()
+                        .get(JDBCOptions.JDBC_TABLE_NAME())
+                        .getOrElse(ScalaConversionUtils.toScalaFn(() -> "COMPLEX"));
+
+        // strip the jdbc: prefix from the url. this leaves us with a url like
+        // postgresql://<hostname>:<port>/<database_name>?params
+        // we don't parse the URI here because different drivers use different
+        // connection
+        // formats that aren't always amenable to how Java parses URIs. E.g., the oracle
+        // driver format looks like oracle:<drivertype>:<user>/<password>@<database>
+        // whereas postgres, mysql, and sqlserver use the scheme://hostname:port/db
+        // format.
+        String url = JdbcUtils.sanitizeJdbcUrl(relation.jdbcOptions().url());
+        log.debug("Extracting table named from query: {}", tableName);
+        Set<String> tableNames = extractTableNames(tableName, url);
+        log.debug("Extracted tableNames: {}", tableNames);
+
+        return tableNames.stream()
+                .map(t -> {
+                    String namespace = t.substring(t.lastIndexOf(".") + 1);
+                    DatasetIdentifier di = new DatasetIdentifier(tableName, namespace);
+                    OpenLineage.DatasetFacetsBuilder datasetFacetsBuilder = context.getOpenLineage().newDatasetFacetsBuilder();
+                    datasetFacetsBuilder.schema(PlanUtils.schemaFacet(context.getOpenLineage(), relation.schema()));
+                    datasetFacetsBuilder.dataSource(PlanUtils.datasourceFacet(context.getOpenLineage(), di.getNamespace()));
+
+                    OpenLineage.SymlinksDatasetFacetIdentifiers symLink = context
+                            .getOpenLineage()
+                            .newSymlinksDatasetFacetIdentifiersBuilder()
+                            .name(t)
+                            .namespace(namespace)
+                            .build();
+
+                    datasetFacetsBuilder.symlinks(context.getOpenLineage().newSymlinksDatasetFacet(Collections.singletonList(symLink)));
+                    return datasetFactory.getDataset(di, datasetFacetsBuilder);
+                }).collect(Collectors.toList());
+    }
+
+    private Set<String> extractTableNames(String query, String url) {
+        Set<String> tableNames = new TableNameParser(query).tables().stream().collect(Collectors.toSet());
+        String dbName = extractDbNameFromUrl(url);
+        if (dbName == null) {
+            return tableNames;
+        }
+        return tableNames.stream()
+                .map(t -> t.contains(".") ? t : dbName + "." + t)
+                .collect(Collectors.toSet());
+    }
+
+    private String extractDbNameFromUrl(String url) {
+        URI uri = URI.create(url);
+        return (uri.getPath().startsWith("/")) ? uri.getPath().substring(1) : null;
     }
 }
