@@ -62,89 +62,89 @@ import scala.collection.Seq$;
 
 class OpenLineageSparkListenerTest {
 
-    @Test
-    void testSqlEventWithJobEventEmitsOnce() {
-        SparkSession sparkSession = mock(SparkSession.class);
-        SparkContext sparkContext = mock(SparkContext.class);
-        EventEmitter emitter = mock(EventEmitter.class);
-        QueryExecution qe = mock(QueryExecution.class);
-        LogicalPlan query = UnresolvedRelation$.MODULE$.apply(TableIdentifier.apply("tableName"));
-        SparkPlan plan = mock(SparkPlan.class);
+  @Test
+  void testSqlEventWithJobEventEmitsOnce() {
+    SparkSession sparkSession = mock(SparkSession.class);
+    SparkContext sparkContext = mock(SparkContext.class);
+    EventEmitter emitter = mock(EventEmitter.class);
+    QueryExecution qe = mock(QueryExecution.class);
+    LogicalPlan query = UnresolvedRelation$.MODULE$.apply(TableIdentifier.apply("tableName"));
+    SparkPlan plan = mock(SparkPlan.class);
 
-        when(sparkSession.sparkContext()).thenReturn(sparkContext);
-        when(sparkContext.appName()).thenReturn("appName");
-        when(sparkContext.getConf()).thenReturn(new SparkConf());
-        when(qe.optimizedPlan())
-                .thenReturn(
-                        new InsertIntoHadoopFsRelationCommand(
-                                new Path("file:///tmp/dir"),
-                                null,
-                                false,
-                                Seq$.MODULE$.empty(),
-                                Option.empty(),
-                                null,
-                                Map$.MODULE$.empty(),
-                                query,
-                                SaveMode.Overwrite,
-                                Option.empty(),
-                                Option.empty(),
-                                Seq$.MODULE$.<String>empty()));
+    when(sparkSession.sparkContext()).thenReturn(sparkContext);
+    when(sparkContext.appName()).thenReturn("appName");
+    when(sparkContext.getConf()).thenReturn(new SparkConf());
+    when(qe.optimizedPlan())
+        .thenReturn(
+            new InsertIntoHadoopFsRelationCommand(
+                new Path("file:///tmp/dir"),
+                null,
+                false,
+                Seq$.MODULE$.empty(),
+                Option.empty(),
+                null,
+                Map$.MODULE$.empty(),
+                query,
+                SaveMode.Overwrite,
+                Option.empty(),
+                Option.empty(),
+                Seq$.MODULE$.<String>empty()));
 
-        when(qe.executedPlan()).thenReturn(plan);
-        when(plan.sparkContext()).thenReturn(sparkContext);
-        when(plan.nodeName()).thenReturn("execute");
+    when(qe.executedPlan()).thenReturn(plan);
+    when(plan.sparkContext()).thenReturn(sparkContext);
+    when(plan.nodeName()).thenReturn("execute");
 
-        OpenLineageContext olContext =
-                OpenLineageContext.builder()
-                        .sparkSession(Optional.of(sparkSession))
-                        .sparkContext(sparkSession.sparkContext())
-                        .openLineage(new OpenLineage(Versions.OPEN_LINEAGE_PRODUCER_URI))
-                        .queryExecution(qe)
-                        .build();
-        olContext
-                .getOutputDatasetQueryPlanVisitors()
-                .add(new InsertIntoHadoopFsRelationVisitor(olContext));
-        ExecutionContext executionContext =
-                new StaticExecutionContextFactory(emitter)
-                        .createSparkSQLExecutionContext(1L, emitter, qe, olContext);
+    OpenLineageContext olContext =
+        OpenLineageContext.builder()
+            .sparkSession(Optional.of(sparkSession))
+            .sparkContext(sparkSession.sparkContext())
+            .openLineage(new OpenLineage(Versions.OPEN_LINEAGE_PRODUCER_URI))
+            .queryExecution(qe)
+            .build();
+    olContext
+        .getOutputDatasetQueryPlanVisitors()
+        .add(new InsertIntoHadoopFsRelationVisitor(olContext));
+    ExecutionContext executionContext =
+        new StaticExecutionContextFactory(emitter)
+            .createSparkSQLExecutionContext(1L, emitter, qe, olContext);
 
-        SparkListenerSQLExecutionStart event = mock(SparkListenerSQLExecutionStart.class);
-        when(event.sparkPlanInfo())
-                .thenReturn(
-                        new SparkPlanInfo(
-                                "name",
-                                "string",
-                                Seq$.MODULE$.empty(),
-                                Map$.MODULE$.empty(),
-                                Seq$.MODULE$.empty()));
-        when(event.executionId()).thenReturn(1L);
-        try (MockedStatic<EventFilterUtils> utils = mockStatic(EventFilterUtils.class)) {
-            utils.when(() -> EventFilterUtils.isDisabled(olContext, event)).thenReturn(false);
-            executionContext.start(event);
-        }
-
-        ArgumentCaptor<OpenLineage.RunEvent> lineageEvent =
-                ArgumentCaptor.forClass(OpenLineage.RunEvent.class);
-
-        verify(emitter, times(1)).emit(lineageEvent.capture());
+    SparkListenerSQLExecutionStart event = mock(SparkListenerSQLExecutionStart.class);
+    when(event.sparkPlanInfo())
+        .thenReturn(
+            new SparkPlanInfo(
+                "name",
+                "string",
+                Seq$.MODULE$.empty(),
+                Map$.MODULE$.empty(),
+                Seq$.MODULE$.empty()));
+    when(event.executionId()).thenReturn(1L);
+    try (MockedStatic<EventFilterUtils> utils = mockStatic(EventFilterUtils.class)) {
+      utils.when(() -> EventFilterUtils.isDisabled(olContext, event)).thenReturn(false);
+      executionContext.start(event);
     }
 
-    @Test
-    void testOpenlineageDisableDisablesExecution() throws URISyntaxException {
-        try (MockedStatic mocked = mockStatic(Environment.class)) {
-            when(Environment.getEnvironmentVariable("OPENLINEAGE_DISABLED")).thenReturn("true");
+    ArgumentCaptor<OpenLineage.RunEvent> lineageEvent =
+        ArgumentCaptor.forClass(OpenLineage.RunEvent.class);
 
-            ContextFactory contextFactory = mock(ContextFactory.class);
+    verify(emitter, times(1)).emit(lineageEvent.capture());
+  }
 
-            OpenLineageSparkListener.init(contextFactory);
-            OpenLineageSparkListener listener = new OpenLineageSparkListener();
+  @Test
+  void testOpenlineageDisableDisablesExecution() throws URISyntaxException {
+    try (MockedStatic mocked = mockStatic(Environment.class)) {
+      when(Environment.getEnvironmentVariable("OPENLINEAGE_DISABLED")).thenReturn("true");
 
-            listener.onJobStart(
-                    new SparkListenerJobStart(0, 2L, Seq$.MODULE$.<StageInfo>empty(), new Properties()));
+      ContextFactory contextFactory = mock(ContextFactory.class);
 
-            verify(contextFactory, never()).createSparkSQLExecutionContext(anyLong());
-        }
+      OpenLineageSparkListener.init(contextFactory);
+      OpenLineageSparkListener listener = new OpenLineageSparkListener();
+
+      listener.onJobStart(
+          new SparkListenerJobStart(0, 2L, Seq$.MODULE$.<StageInfo>empty(), new Properties()));
+
+      verify(contextFactory, never()).createSparkSQLExecutionContext(anyLong());
     }
+  }
 
     @Test
     void testJdbcRelationQuery() {
@@ -221,10 +221,10 @@ class OpenLineageSparkListenerTest {
     private JDBCRelation createJdbcRelation(String query, String url, SparkSession sparkSession) {
 
         scala.collection.immutable.Map<String, String> params =
-                        scala.collection.immutable.Map$.MODULE$
-                                .<String, String>newBuilder()
-                                .$plus$eq(Tuple2.apply("driver", Driver.class.getName()))
-                                .result();
+                scala.collection.immutable.Map$.MODULE$
+                        .<String, String>newBuilder()
+                        .$plus$eq(Tuple2.apply("driver", Driver.class.getName()))
+                        .result();
         return new JDBCRelation(
                 new StructType(
                         new StructField[]{

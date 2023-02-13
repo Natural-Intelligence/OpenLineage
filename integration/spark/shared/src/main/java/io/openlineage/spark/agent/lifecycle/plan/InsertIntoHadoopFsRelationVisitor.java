@@ -12,8 +12,6 @@ import io.openlineage.spark.api.OpenLineageContext;
 import io.openlineage.spark.api.QueryPlanVisitor;
 import java.util.Collections;
 import java.util.List;
-
-import lombok.extern.slf4j.Slf4j;
 import org.apache.spark.sql.SaveMode;
 import org.apache.spark.sql.catalyst.plans.logical.LogicalPlan;
 import org.apache.spark.sql.execution.datasources.InsertIntoHadoopFsRelationCommand;
@@ -22,7 +20,6 @@ import org.apache.spark.sql.execution.datasources.InsertIntoHadoopFsRelationComm
  * {@link LogicalPlan} visitor that matches an {@link InsertIntoHadoopFsRelationCommand} and
  * extracts the output {@link OpenLineage.Dataset} being written.
  */
-@Slf4j
 public class InsertIntoHadoopFsRelationVisitor
     extends QueryPlanVisitor<InsertIntoHadoopFsRelationCommand, OpenLineage.OutputDataset> {
 

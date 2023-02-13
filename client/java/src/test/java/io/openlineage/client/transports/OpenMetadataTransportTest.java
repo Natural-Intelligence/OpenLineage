@@ -105,7 +105,7 @@ class OpenMetadataTransportTest {
     }
 
     @Test
-    void openMetadataTransportRaisesOn500() throws IOException {
+    void openMetadataTransportDoesntThrowExceptionOnFailure() throws IOException {
         CloseableHttpClient http = mock(CloseableHttpClient.class);
         OpenMetadataConfig config = new OpenMetadataConfig();
         config.setUrl(URI.create("https://localhost:8081"));
@@ -118,14 +118,14 @@ class OpenMetadataTransportTest {
         when(http.execute(any())).thenReturn(getResponseInput);
         OpenLineage.RunEvent event = createRunEvent(OpenLineage.RunEvent.EventType.START, createInput(), null);
 
-        assertThrows(OpenLineageClientException.class, () -> client.emit(event));
+        client.emit(event);
 
         verify(http, times(1)).execute(any(HttpGet.class));
         verify(http, times(0)).execute(any(HttpPut.class));
     }
 
     @Test
-    void openMetadataTransportRaisesOnConnectionFail() throws IOException {
+    void openMetadataTransportDoesntThrowExceptionOnConnectionFail() throws IOException {
         CloseableHttpClient http = mock(CloseableHttpClient.class);
         OpenMetadataConfig config = new OpenMetadataConfig();
         config.setUrl(URI.create("https://localhost:8081"));
@@ -135,7 +135,7 @@ class OpenMetadataTransportTest {
         when(http.execute(any())).thenThrow(new IOException(""));
         OpenLineage.RunEvent event = createRunEvent(OpenLineage.RunEvent.EventType.START, createInput(), null);
 
-        assertThrows(OpenLineageClientException.class, () -> client.emit(event));
+        client.emit(event);
 
         verify(http, times(1)).execute(any(HttpGet.class));
         verify(http, times(0)).execute(any(HttpPut.class));
